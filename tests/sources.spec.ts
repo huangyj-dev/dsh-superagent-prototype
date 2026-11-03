@@ -9,6 +9,7 @@ import { commentTrigger, githubAddress, githubChannel, issueTrigger, type Github
 import { claimPull, observePull, pullEndNotices, pullOf, ticketBranch, type Pull } from '../src/sources/github-pull.ts'
 import { ciCounts, ciFact, ciSummary } from '../src/sources/github-read.ts'
 import { apply as applyGithub, githubKind, pollFailure, pollRound } from '../src/sources/github.ts'
+import { gitlabKind } from '../src/sources/gitlab.ts'
 import { pollThreads as pollGithubThreads } from '../src/sources/github.ts'
 import { SourceRegistry } from '../src/sources/registry.ts'
 import { cursorAt, POLL_HORIZON_MS } from '../src/sources/poll.ts'
@@ -89,6 +90,25 @@ function github(h: ReturnType<typeof host>, routes: Record<string, unknown>): st
   return reads
 }
 const bare = (reads: string[]) => reads.map(path => path.split('?')[0])
+describe('Source field patterns', () => {
+  it('compile the way the browser compiles an input pattern, under the v flag', () => {
+    const found: { owner: string; pattern: string }[] = []
+    const collect = (owner: string, fields: readonly unknown[] | undefined): void => {
+      for (const field of fields ?? []) {
+        const spec = field as { type?: string; pattern?: string; columns?: { pattern?: string }[] }
+        if (spec.pattern) found.push({ owner, pattern: spec.pattern })
+        if (spec.type === 'rows') for (const column of spec.columns ?? []) if (column.pattern) found.push({ owner, pattern: column.pattern })
+      }
+    }
+    for (const kind of [feishuKind, githubKind, gitlabKind]) {
+      collect(kind.kind, kind.fields)
+      collect(`${kind.kind} policy`, kind.policy?.fields)
+    }
+    expect(found.length).toBeGreaterThanOrEqual(10)
+    for (const { owner, pattern } of found) expect(() => new RegExp(`^(?:${pattern})$`, 'v'), `${owner}: ${pattern}`).not.toThrow()
+  })
+})
+
 describe('feishu source', () => {
   it('registers its kind without a bot, and names on its health what setup still needs', async () => {
     const run = async (overrides: Partial<SourceContextDeps>) => {
