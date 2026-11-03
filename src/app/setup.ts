@@ -77,16 +77,21 @@ export class Setup {
   private async resolve(settings: Settings): Promise<Deployment> {
     const { context, machine, lifetime } = this.host
     const probe = this.probe()
-    // A GitLab Source needs no CLI: its account is resolved over HTTP from the configured token file. A GitHub Source
-    // wins when it names a repository, so an installation with both keeps its existing GitHub setup.
-    const github = settings.sources.github?.config
-    const gitlab = settings.sources.gitlab?.config
+    // Resolve every configured Source: a GitHub account comes from its CLI, a GitLab account from its token file over
+    // HTTP. An installation may have both, and each Source then acts with its own account.
+    // A switched-off Source needs no account: its card stays configured for later without blocking startup.
+    const github = settings.sources.github?.enabled ? settings.sources.github.config : undefined
+    const gitlab = settings.sources.gitlab?.enabled ? settings.sources.gitlab.config : undefined
+    const githubRepository = typeof github?.repository === 'string' ? github.repository : ''
     const gitlabRepository = typeof gitlab?.repository === 'string' ? gitlab.repository : ''
-    const deployment = typeof github?.repository === 'string' && github.repository
-      ? await resolveDeployment(machine, github, probe)
-      : gitlabRepository ? await resolveGitlab(machine, gitlab)
-        // No Source names a repository yet: report it where the GitHub card can fix it.
-        : await resolveDeployment(machine, github, probe)
+    const githubDeployment = githubRepository ? await resolveDeployment(machine, github, probe) : undefined
+    const gitlabDeployment = gitlabRepository ? await resolveGitlab(machine, gitlab) : undefined
+    // `repository` names the GitHub repository when there is one (GitHub links and notices read it); a GitLab-only
+    // installation keeps naming its project there, and each account also carries its own repository.
+    const deployment = githubDeployment
+      ? { ...githubDeployment, ...(gitlabDeployment?.gitlab ? { gitlab: gitlabDeployment.gitlab } : {}) }
+      // No Source names a repository yet: report it where the GitHub card can fix it.
+      : gitlabDeployment ?? await resolveDeployment(machine, github, probe)
     const feishu = await resolveFeishuBot(machine, settings.sources.feishu?.config, probe).catch((error: unknown) => {
       if (!(error instanceof SetupError)) throw error
       this.feishuProblem = error.problem

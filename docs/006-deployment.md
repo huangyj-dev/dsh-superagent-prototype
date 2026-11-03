@@ -5,7 +5,7 @@ Use this guide to install, configure and operate dsh-superagent. It covers accou
 ## What runs
 
 - **A dedicated DeepSeek Harness profile**, called `superagent` in this guide. Create it from the Web profile template. It loads the bundle and serves its panel on `127.0.0.1`. Keep it separate from the profile you work in: the plugin changes process-wide `PATH` and git settings, and its process needs independent restarts and upgrades.
-- **An agent GitHub account, or an agent GitLab account.** The agent comments, pushes branches and opens pull requests as this account. A GitHub Source uses a GitHub CLI signed in only as that account; a GitLab Source uses a Personal Access Token file and needs no CLI.
+- **An agent GitHub account, an agent GitLab account, or both.** The agent comments, pushes branches and opens pull requests as this account. A GitHub Source uses a GitHub CLI signed in only as that account; a GitLab Source uses a Personal Access Token file and needs no CLI. When both Sources are enabled, each acts with its own account and both are resolved at startup; a switched-off Source is not resolved.
 - **Optional:** a Feishu bot for chat requests.
 
 Plugin configuration holds the state directory and machine limits. Use the panel for everything else: Sources for the repository and accounts, Policy for allowed lists, and Execution for worker directories and commands.

@@ -53,7 +53,7 @@ export const GitlabAccountsSchema = z.object({
   repository: z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*$/, 'group/project').default(''),
   tokenFile: z.string().trim().default(''),
 })
-export interface GitlabAccount { baseUrl: string; tokenFile: string; login: string }
+export interface GitlabAccount { baseUrl: string; tokenFile: string; login: string; repository: string }
 /** Source configuration keys that affect deployment setup and trigger a restart when changed. */
 export const SETUP_FIELDS: Readonly<Record<string, readonly string[]>> = {
   github: Object.keys(GithubAccountsSchema.shape), gitlab: Object.keys(GitlabAccountsSchema.shape), feishu: Object.keys(FeishuBotSchema.shape) }
@@ -179,5 +179,5 @@ export async function resolveGitlab(machine: Machine, gitlab: unknown): Promise<
   const level = project.permissions?.project_access?.access_level ?? project.permissions?.group_access?.access_level ?? 0
   if (level < GITLAB_WRITE_LEVEL) throw new SetupError('gitlabReadOnly', { account: user.username, repository: project.path_with_namespace })
   return { ...machine, repository: project.path_with_namespace, github: { cli: '', login: '', noreply: '' },
-    gitlab: { baseUrl, tokenFile: accounts.tokenFile, login: user.username } }
+    gitlab: { baseUrl, tokenFile: accounts.tokenFile, login: user.username, repository: project.path_with_namespace } }
 }

@@ -18,7 +18,7 @@ It asks one short question at a time, shows the full plan once, and then install
 
 ## Quick start with GitLab
 
-A GitLab Source needs no `gh`: the agent acts with a Personal Access Token, and workers push branches with the same token through a git credential helper. The GitHub path in [SETUP.md](SETUP.md) and [docs/006-deployment.md](docs/006-deployment.md) is unchanged.
+A GitLab Source needs no `gh`: the agent acts with a Personal Access Token, and workers push branches with the same token through a git credential helper. The GitHub path in [SETUP.md](SETUP.md) and [docs/006-deployment.md](docs/006-deployment.md) is unchanged, and a GitHub and a GitLab Source can be enabled together: each acts with its own account, and a switched-off Source is not resolved.
 
 **1. Install.** Node.js 22.19+ or 24+, pnpm, git 2.32+, tmux and Python 3.8+, and DeepSeek Harness on `PATH` (see [docs/006-deployment.md](docs/006-deployment.md) for the supported version):
 

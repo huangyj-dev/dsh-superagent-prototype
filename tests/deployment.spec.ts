@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Config, executable, machineOf, resolveDeployment, resolveFeishuBot, type Machine, type Probe } from '../src/deployment.ts'
+import { Config, executable, machineOf, resolveDeployment, resolveFeishuBot, resolveGitlab, type Machine, type Probe } from '../src/deployment.ts'
 import { gitEnv } from './fixtures/git.ts'
 
 const exec = promisify(execFile)
@@ -53,6 +53,49 @@ describe('configuration schema', () => {
   it('names keys the configuration does not define, and where the values of older keys live now', () => {
     const raw = minimal({ repository: 'acme/widgets', repositoryPath: '/srv/widgets', blockedCommands: [], author: { name: 'Alice' }, extra: 1 })
     expect(() => machineOf(Config(raw))).toThrow('keys it does not use: repository (now on the GitHub Source), repositoryPath (now in the prepare command of the Execution settings), blockedCommands (now in the Execution settings), author (now prompt text), extra;')
+  })
+})
+
+describe('GitLab account', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+  const tokenFile = (): string => {
+    const file = join(dir, 'gitlab-token')
+    writeFileSync(file, 'glpat-test\n')
+    return file
+  }
+  const answer = (status: number, body: unknown): void => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: status >= 200 && status < 300, status, statusText: 'x', json: async () => body }) as unknown as Response))
+  }
+  it('resolves the token user and the project over HTTP, so no CLI is needed', async () => {
+    const calls: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      calls.push(String(url))
+      const body = String(url).endsWith('/user') ? { username: 'agent-bot', id: 7 }
+        : { path_with_namespace: 'acme/widgets', permissions: { project_access: { access_level: 30 } } }
+      return { ok: true, status: 200, statusText: 'OK', json: async () => body } as unknown as Response
+    }))
+    const file = tokenFile()
+    const deployment = await resolveGitlab(machine(), { baseUrl: 'https://gitlab.example.com/api/v4/', repository: 'acme/widgets', tokenFile: file })
+    expect(deployment.repository).toBe('acme/widgets')
+    expect(deployment.gitlab).toEqual({ baseUrl: 'https://gitlab.example.com/api/v4', tokenFile: file, login: 'agent-bot', repository: 'acme/widgets' })
+    expect(calls).toEqual(['https://gitlab.example.com/api/v4/user', 'https://gitlab.example.com/api/v4/projects/acme%2Fwidgets'])
+  })
+  it('reports the token, project and role problems where the GitLab card fixes them', async () => {
+    const accounts = { baseUrl: 'https://gitlab.example.com/api/v4', repository: 'acme/widgets', tokenFile: tokenFile() }
+    answer(200, { username: 'agent-bot', id: 7 })
+    await expect(resolveGitlab(machine(), { ...accounts, tokenFile: join(dir, 'missing') })).rejects.toMatchObject({ place: 'gitlab', code: 'gitlabTokenUnreadable' })
+    answer(401, {})
+    await expect(resolveGitlab(machine(), accounts)).rejects.toMatchObject({ place: 'gitlab', code: 'gitlabTokenInvalid' })
+    answer(200, { username: 'agent-bot', id: 7 })
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => String(url).endsWith('/user')
+      ? { ok: true, status: 200, statusText: 'OK', json: async () => ({ username: 'agent-bot', id: 7 }) } as unknown as Response
+      : { ok: false, status: 404, statusText: 'Not Found', json: async () => ({}) } as unknown as Response))
+    await expect(resolveGitlab(machine(), accounts)).rejects.toMatchObject({ place: 'gitlab', code: 'gitlabProjectUnreadable' })
+    answer(200, { username: 'agent-bot', id: 7 })
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => String(url).endsWith('/user')
+      ? { ok: true, status: 200, statusText: 'OK', json: async () => ({ username: 'agent-bot', id: 7 }) } as unknown as Response
+      : { ok: true, status: 200, statusText: 'OK', json: async () => ({ path_with_namespace: 'acme/widgets', permissions: { project_access: { access_level: 20 } } }) } as unknown as Response))
+    await expect(resolveGitlab(machine(), accounts)).rejects.toMatchObject({ place: 'gitlab', code: 'gitlabReadOnly' })
   })
 })
 

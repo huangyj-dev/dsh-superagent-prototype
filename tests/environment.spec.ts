@@ -22,6 +22,22 @@ const workerEnv = (env: Record<string, string | undefined>): Record<string, stri
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'environment-')); mkdirSync(join(dir, 'real')) })
 afterEach(() => { rmSync(dir, { recursive: true, force: true }) })
 
+describe('GitLab credentials', () => {
+  it('writes a helper for GitHub and GitLab when both Sources are configured', async () => {
+    const tokenFile = join(dir, 'gitlab-token')
+    writeFileSync(tokenFile, 'glpat-test\n')
+    const base = testDeployment()
+    await writeEnvironment({ ...base, stateDir: dir, gitlab: { baseUrl: 'http://gitlab.example.com/api/v4', tokenFile, login: 'agent-bot', repository: 'acme/widgets' } }, [])
+    const config = readFileSync(workerGitConfig(dir), 'utf8')
+    expect(config).toContain('[credential "https://github.com"]')
+    expect(config).toContain('[credential "http://gitlab.example.com"]')
+    expect(config).toContain(`helper = "${join(dir, 'worker-gitlab-credential')}"`)
+    const { stdout } = await exec(join(dir, 'worker-gitlab-credential'), ['get'])
+    expect(stdout).toContain('username=oauth2')
+    expect(stdout).toContain('password=glpat-test')
+  })
+})
+
 describe('worker shims', () => {
   it('run a wrapper that calls `gh` by name without reaching the shim again, and keep the caller\'s other PATH entries', async () => {
     program(join(dir, 'real', 'gh'), 'echo "{\\"login\\":\\"agent-bot\\",\\"config\\":\\"$GH_CONFIG_DIR\\",\\"path\\":\\"$PATH\\"}"')

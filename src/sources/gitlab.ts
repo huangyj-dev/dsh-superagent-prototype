@@ -217,7 +217,7 @@ export const gitlabKind: SourceKind<GitlabConfig> = {
     values: ({ deployment, config, trigger }) => ({
       DSH_SUPERAGENT_GITLAB_API_URL: deployment.gitlab?.baseUrl ?? config.baseUrl,
       DSH_SUPERAGENT_GITLAB_TOKEN_FILE: deployment.gitlab?.tokenFile ?? config.tokenFile,
-      DSH_SUPERAGENT_GITLAB_REPOSITORY: deployment.repository || config.repository,
+      DSH_SUPERAGENT_GITLAB_REPOSITORY: deployment.gitlab?.repository ?? config.repository,
       DSH_SUPERAGENT_GITLAB_KIND: trigger?.source === SOURCE ? String(trigger.meta.kind ?? '') : '',
       DSH_SUPERAGENT_GITLAB_IID: trigger?.source === SOURCE ? String(trigger.meta.iid ?? '') : '',
       DSH_SUPERAGENT_GITLAB_ACCOUNT: deployment.gitlab?.login ?? '',
