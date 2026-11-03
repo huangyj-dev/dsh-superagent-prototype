@@ -49,9 +49,9 @@ export const GithubAccountsSchema = z.object({
 })
 export const FeishuBotSchema = z.object({ cli: z.string().trim().default('') })
 /** GitLab Source account: API base URL, project path, and a Personal Access Token file the host can read. */
-const GitlabGroup = z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/, 'group')
+const GitlabGroup = z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*$/, 'group')
 // A project entry may be exact, `group/*` (direct children) or `group/**` (subgroups too).
-const GitlabPattern = z.string().trim().regex(/^([A-Za-z0-9_.*-]+\/)*[A-Za-z0-9_.*-]+$/, 'group/project or group/*')
+const GitlabPattern = z.string().trim().regex(/^([A-Za-z0-9_.*-]+\/)*[A-Za-z0-9_.*-]*$/, 'group/project or group/*')
 export const GitlabAccountsSchema = z.object({
   baseUrl: z.string().trim().regex(/^https?:\/\/[^\s]+$/, 'http(s) URL').default('https://gitlab.com/api/v4'),
   // Legacy single project, kept so an existing profile keeps working; setup folds it into `projects`.

@@ -25,8 +25,9 @@ export type GitlabKindId = 'issues' | 'merge_requests'
 const KIND_LABEL: Record<GitlabKindId, string> = { issues: 'issue', merge_requests: 'merge request' }
 const KIND_PATH: Record<GitlabKindId, string> = { issues: 'issues', merge_requests: 'merge_requests' }
 
-const GitlabPattern = z.string().trim().regex(/^([A-Za-z0-9_.*-]+\/)*[A-Za-z0-9_.*-]+$/, 'group/project or group/*')
-const GitlabGroup = z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/, 'group')
+// An empty entry is what the panel's Add button inserts before typing; selectionOf drops it.
+const GitlabPattern = z.string().trim().regex(/^([A-Za-z0-9_.*-]+\/)*[A-Za-z0-9_.*-]*$/, 'group/project or group/*')
+const GitlabGroup = z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*$/, 'group')
 export const GitlabConfigSchema = z.object({
   // Exact projects, wildcard patterns (`group/*`, `group/**`), and whole groups all feed one deduplicated watch set.
   // Rows fields submit `{ path }`; a bare string is accepted too, so API saves and panel saves validate alike.

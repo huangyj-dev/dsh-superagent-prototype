@@ -10,7 +10,7 @@ export interface GitlabSelection { projects: string[]; groups: string[] }
 /** A configured entry: rows fields submit `{ path }`, while an API save or an older config may hold the bare string. */
 export type GitlabEntry = string | { path: string }
 /** Accept both shapes for one pattern schema, so the panel rows and a direct API save validate the same way. */
-export const entrySchema = <T extends z.ZodTypeAny>(pattern: T) => z.union([pattern, z.object({ path: pattern }).strict()])
+export const entrySchema = <T extends z.ZodTypeAny>(pattern: T) => z.union([pattern, z.looseObject({ path: pattern })])
 export const entryPath = (entry: GitlabEntry): string => typeof entry === 'string' ? entry : entry.path
 /** Thrown when GitLab refuses a group listing; callers turn it into their own setup or health error. */
 export class GitlabGroupError extends Error {

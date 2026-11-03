@@ -60,6 +60,10 @@ describe('project selection', () => {
     expect(selectionOf(parsed)).toEqual({ projects: ['g/*'], groups: ['team'] })
     expect(selectionOf({ projects: ['a/b'], groups: [] })).toEqual({ projects: ['a/b'], groups: [] })
   })
+  it('accepts the blank row the Add button inserts and leaves it out of the selection', () => {
+    const parsed = GitlabConfigSchema.parse({ projects: [{ path: '' }, { path: 'gba-mwf/motor/grapes_si' }], groups: [{ path: '' }] })
+    expect(selectionOf(parsed)).toEqual({ projects: ['gba-mwf/motor/grapes_si'], groups: [] })
+  })
   it('compiles patterns so * stops at a segment and ** does not', () => {
     expect(patternToRegExp('g/*').test('g/a')).toBe(true)
     expect(patternToRegExp('g/*').test('g/a/b')).toBe(false)
