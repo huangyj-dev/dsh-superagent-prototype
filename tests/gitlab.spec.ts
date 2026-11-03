@@ -55,6 +55,11 @@ describe('project selection', () => {
     expect(selectionOf({ repository: 'a/b', projects: ['c/d', 'g/*', 'c/d'], groups: ['g', 'g'] }))
       .toEqual({ projects: ['a/b', 'c/d', 'g/*'], groups: ['g'] })
   })
+  it('accepts the panel rows shape as well as a bare string', () => {
+    const parsed = GitlabConfigSchema.parse({ projects: [{ path: 'g/*' }], groups: [{ path: 'team' }] })
+    expect(selectionOf(parsed)).toEqual({ projects: ['g/*'], groups: ['team'] })
+    expect(selectionOf({ projects: ['a/b'], groups: [] })).toEqual({ projects: ['a/b'], groups: [] })
+  })
   it('compiles patterns so * stops at a segment and ** does not', () => {
     expect(patternToRegExp('g/*').test('g/a')).toBe(true)
     expect(patternToRegExp('g/*').test('g/a/b')).toBe(false)

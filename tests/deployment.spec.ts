@@ -96,7 +96,7 @@ describe('GitLab account', () => {
       return { ok: false, status: 404, statusText: 'Not Found', json: async () => ({}) } as unknown as Response
     }))
     const deployment = await resolveGitlab(machine(), { baseUrl: 'https://gitlab.example.com/api/v4', tokenFile: file,
-      projects: ['g/*', 'team/sub/y'], groups: ['team'] })
+      projects: [{ path: 'g/*' }, { path: 'team/sub/y' }], groups: [{ path: 'team' }] })
     expect(deployment.gitlab?.repositories).toEqual(['team/sub/y', 'team/x', 'g/a'])
   })
   it('leaves out a project a pattern matched but the token cannot use, and fails on an explicit one', async () => {

@@ -7,15 +7,20 @@ import { z } from 'zod'
 const API_TIMEOUT_MS = 30_000
 const ProjectSchema = z.looseObject({ path_with_namespace: z.string() })
 export interface GitlabSelection { projects: string[]; groups: string[] }
+/** A configured entry: rows fields submit `{ path }`, while an API save or an older config may hold the bare string. */
+export type GitlabEntry = string | { path: string }
+/** Accept both shapes for one pattern schema, so the panel rows and a direct API save validate the same way. */
+export const entrySchema = <T extends z.ZodTypeAny>(pattern: T) => z.union([pattern, z.object({ path: pattern }).strict()])
+export const entryPath = (entry: GitlabEntry): string => typeof entry === 'string' ? entry : entry.path
 /** Thrown when GitLab refuses a group listing; callers turn it into their own setup or health error. */
 export class GitlabGroupError extends Error {
   constructor(readonly status: number, readonly group: string) { super(`GitLab group ${group} returned ${status}`) }
 }
 /** The configured selection: the legacy single `repository` folds into `projects`, and blanks are dropped. */
-export function selectionOf(config: { repository?: string | undefined; projects?: readonly string[] | undefined; groups?: readonly string[] | undefined }): GitlabSelection {
+export function selectionOf(config: { repository?: string | undefined; projects?: readonly GitlabEntry[] | undefined; groups?: readonly GitlabEntry[] | undefined }): GitlabSelection {
   const legacy = config.repository?.trim()
-  const projects = [...legacy ? [legacy] : [], ...config.projects ?? []].map(project => project.trim()).filter(Boolean)
-  const groups = (config.groups ?? []).map(group => group.trim()).filter(Boolean)
+  const projects = [...legacy ? [legacy] : [], ...(config.projects ?? []).map(entryPath)].map(project => project.trim()).filter(Boolean)
+  const groups = (config.groups ?? []).map(entryPath).map(group => group.trim()).filter(Boolean)
   return { projects: [...new Set(projects)], groups: [...new Set(groups)] }
 }
 export const hasWildcard = (pattern: string): boolean => /[*?]/.test(pattern)
