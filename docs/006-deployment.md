@@ -46,6 +46,8 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 
    Sign in as the agent account; the last command prints its login. dsh-superagent reads the login the same way.
 
+   **Single-account testing.** The GitHub card's optional *Agent username* separates the name that counts as the agent from the account the CLI signs in as. Setting it to a placeholder (for example `superagent`) and switching on *Receive comments in the repository* lets one account mention that placeholder and still be treated as the person asking; the agent's own replies carry the host's marker and are skipped. A dedicated account remains the recommended setup.
+
 ### Agent GitLab account
 
 A GitLab Source needs no CLI. Create a Personal Access Token with the `api` scope for the account the agent should act as (a dedicated account is best), save it to a file readable by the host (for example `~/.dsh/gitlab-token`, mode `600`), and name that file on the GitLab card. Setup reads the token, identifies its user, and checks that the account can push to every watched project (the Developer role is enough). Workers receive the same token through a git credential helper, so branch pushes and merge-request API calls work without a CLI.
