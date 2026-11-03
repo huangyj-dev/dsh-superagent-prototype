@@ -3,3 +3,13 @@ lib/
 .artifacts/
 .env
 coverage/
+# Local development and the superagent runtime
+.corepack/
+.pnpm-store/
+.xdg-data/
+.xdg-cache/
+.check.log
+.test.log
+.sa/
+.work/
+.backup-cordis.patch.yml

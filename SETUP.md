@@ -35,7 +35,7 @@ Ask in this order, one per message, following the flow of work in [docs/001-doma
 **Sources: where requests come from.**
 
 1. **Sources.** Should the agent take requests from GitHub only, or also from Feishu chats? [GitHub only, unless the team works in Feishu.]
-2. **Repository.** Which github.com repository should the agent work on, as `owner/name`?
+2. **Repository.** Which repository should the agent work on: a github.com repository as `owner/name`, or a GitLab project as `group/project`? A GitLab project needs its instance's API base URL and a Personal Access Token file instead of a GitHub CLI.
 3. **Agent account.** Which GitHub user account will the agent act as? [A dedicated account, never the operator's own: everything the agent writes appears under this name.] It may not exist yet; creating it is an operator step.
 4. With Feishu: **which chats,** by name? The agent looks up their ids after the bot is configured.
 

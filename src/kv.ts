@@ -49,6 +49,11 @@ export const KV = {
     branchCi: record<{ branch?: string; failures?: string[]; revision: number }>('github-branch-ci'),
     ci: family<{ fingerprint: string; revision: number }, [number: number]>('github-ci:') },
   /**
+   * GitLab Source: project-wide cursor over Issues and merge requests ordered by update time, and the IDs of the Threads
+   * already read in the current round (so a note is read once).
+   */
+  gitlab: { since: record<string>('gitlab-since'), thread: family<string, [thread: string]>('gitlab-thread:') },
+  /**
    * Feishu Source: known chats (`true` for direct messages); per-chat history cursor and active topics mapped from topic ID
    * to last-seen timestamp; and per-polled-thread seen message IDs and initialization flag.
    */
