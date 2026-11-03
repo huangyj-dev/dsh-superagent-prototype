@@ -83,9 +83,11 @@ export class Setup {
     const github = settings.sources.github?.enabled ? settings.sources.github.config : undefined
     const gitlab = settings.sources.gitlab?.enabled ? settings.sources.gitlab.config : undefined
     const githubRepository = typeof github?.repository === 'string' ? github.repository : ''
-    const gitlabRepository = typeof gitlab?.repository === 'string' ? gitlab.repository : ''
+    // A GitLab Source is configured by any of its three selection fields, not only the legacy single project.
+    const selection = gitlab as { repository?: string; projects?: string[]; groups?: string[] } | undefined
+    const gitlabSelected = !!selection && (!!selection.repository || (selection.projects?.length ?? 0) > 0 || (selection.groups?.length ?? 0) > 0)
     const githubDeployment = githubRepository ? await resolveDeployment(machine, github, probe) : undefined
-    const gitlabDeployment = gitlabRepository ? await resolveGitlab(machine, gitlab) : undefined
+    const gitlabDeployment = gitlabSelected ? await resolveGitlab(machine, gitlab) : undefined
     // `repository` names the GitHub repository when there is one (GitHub links and notices read it); a GitLab-only
     // installation keeps naming its project there, and each account also carries its own repository.
     const deployment = githubDeployment

@@ -59,9 +59,9 @@ Open the URL printed in the newest `.artifacts/dsh-superagent-*.log` (the line s
 
 | Group | What to set |
 |---|---|
-| Sources → GitLab | Project `group/project`, API base URL (`https://gitlab.example.com/api/v4`), and the token file path |
+| Sources → GitLab | API base URL (`https://gitlab.example.com/api/v4`), token file path, and the projects: exact `group/project`, wildcard `group/*` (direct children) or `group/**` (subgroups too), and whole groups |
 | Policy → On GitLab | The GitLab usernames allowed to originate work |
-| Execution | Directory root, and a prepare command that gives each Ticket a checkout, for example `git clone --depth 1 <project url> "$DSH_SUPERAGENT_DIR" && git -C "$DSH_SUPERAGENT_DIR" config user.name "..." && git -C "$DSH_SUPERAGENT_DIR" config user.email "..."` |
+| Execution | Directory root, and a prepare command that gives each Ticket a checkout. With GitHub and GitLab both enabled, branch on the Source: `if [ -n "$DSH_SUPERAGENT_GITHUB_REPOSITORY" ]; then git clone --depth 1 "https://github.com/$DSH_SUPERAGENT_GITHUB_REPOSITORY.git" "$DSH_SUPERAGENT_DIR"; else git clone --depth 1 "${DSH_SUPERAGENT_GITLAB_API_URL%/api/v4}/$DSH_SUPERAGENT_GITLAB_REPOSITORY.git" "$DSH_SUPERAGENT_DIR"; fi` |
 | Prompts | The commit author and merge policy workers follow |
 
 **6. Ask for work.** From an allowed account, post a note on an Issue or merge request:

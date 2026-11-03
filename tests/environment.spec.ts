@@ -27,7 +27,7 @@ describe('GitLab credentials', () => {
     const tokenFile = join(dir, 'gitlab-token')
     writeFileSync(tokenFile, 'glpat-test\n')
     const base = testDeployment()
-    await writeEnvironment({ ...base, stateDir: dir, gitlab: { baseUrl: 'http://gitlab.example.com/api/v4', tokenFile, login: 'agent-bot', repository: 'acme/widgets' } }, [])
+    await writeEnvironment({ ...base, stateDir: dir, gitlab: { baseUrl: 'http://gitlab.example.com/api/v4', tokenFile, login: 'agent-bot', repositories: ['acme/widgets'] } }, [])
     const config = readFileSync(workerGitConfig(dir), 'utf8')
     expect(config).toContain('[credential "https://github.com"]')
     expect(config).toContain('[credential "http://gitlab.example.com"]')

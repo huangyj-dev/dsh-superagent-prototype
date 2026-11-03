@@ -743,6 +743,7 @@ const TEXT = {
   'setup.gitlabTokenUnreadable': ['读不到 GitLab 令牌文件 {file}：{output}', SETUP_PROBLEMS.gitlabTokenUnreadable[1]],
   'setup.gitlabTokenInvalid': ['GitLab 拒绝了这个令牌（{url} 返回 401）。', SETUP_PROBLEMS.gitlabTokenInvalid[1]],
   'setup.gitlabUnreachable': ['连接不到 {url} 的 GitLab：{output}', SETUP_PROBLEMS.gitlabUnreachable[1]],
+  'setup.gitlabGroupUnreadable': ['列不出 GitLab 组 {group}（{status}）。', SETUP_PROBLEMS.gitlabGroupUnreadable[1]],
   'setup.gitlabProjectUnreadable': ['@{account} 读不到 GitLab 项目 {repository}。', SETUP_PROBLEMS.gitlabProjectUnreadable[1]],
   'setup.gitlabReadOnly': ['@{account} 不能推送 GitLab 项目 {repository}；至少需要 Developer 角色。', SETUP_PROBLEMS.gitlabReadOnly[1]],
   'setup.feishuCliFailed': ['机器人的 lark-cli 不可用。', SETUP_PROBLEMS.feishuCliFailed[1]],

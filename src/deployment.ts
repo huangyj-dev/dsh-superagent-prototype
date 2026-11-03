@@ -8,6 +8,7 @@ import { z } from 'zod'
 import type { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
 import { runAsWorker, sameDirectory, withoutDirectory, workerBin } from './infra/environment.ts'
 import { SetupError } from './setup.ts'
+import { GitlabGroupError, hasWildcard, selectedProjects, selectionOf } from './infra/gitlab-groups.ts'
 
 const reason = (error: unknown): string => error instanceof Error ? error.message : String(error)
 const absolute = (description: string) => s.string().pattern(/^\//).description(`${description} Absolute path.`)
@@ -48,12 +49,18 @@ export const GithubAccountsSchema = z.object({
 })
 export const FeishuBotSchema = z.object({ cli: z.string().trim().default('') })
 /** GitLab Source account: API base URL, project path, and a Personal Access Token file the host can read. */
+const GitlabGroup = z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/, 'group')
+// A project entry may be exact, `group/*` (direct children) or `group/**` (subgroups too).
+const GitlabPattern = z.string().trim().regex(/^([A-Za-z0-9_.*-]+\/)*[A-Za-z0-9_.*-]+$/, 'group/project or group/*')
 export const GitlabAccountsSchema = z.object({
   baseUrl: z.string().trim().regex(/^https?:\/\/[^\s]+$/, 'http(s) URL').default('https://gitlab.com/api/v4'),
+  // Legacy single project, kept so an existing profile keeps working; setup folds it into `projects`.
   repository: z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*$/, 'group/project').default(''),
+  projects: z.array(GitlabPattern).default([]),
+  groups: z.array(GitlabGroup).default([]),
   tokenFile: z.string().trim().default(''),
 })
-export interface GitlabAccount { baseUrl: string; tokenFile: string; login: string; repository: string }
+export interface GitlabAccount { baseUrl: string; tokenFile: string; login: string; repositories: string[] }
 /** Source configuration keys that affect deployment setup and trigger a restart when changed. */
 export const SETUP_FIELDS: Readonly<Record<string, readonly string[]>> = {
   github: Object.keys(GithubAccountsSchema.shape), gitlab: Object.keys(GitlabAccountsSchema.shape), feishu: Object.keys(FeishuBotSchema.shape) }
@@ -163,21 +170,43 @@ async function gitlabGet<T>(url: string, token: string, schema: z.ZodType<T>): P
 export async function resolveGitlab(machine: Machine, gitlab: unknown): Promise<Deployment> {
   const accounts = GitlabAccountsSchema.parse(gitlab ?? {})
   const baseUrl = accounts.baseUrl.replace(/\/+$/, '')
-  if (!accounts.repository) throw new SetupError('gitlabRepositoryUnset')
   if (!accounts.tokenFile) throw new SetupError('gitlabTokenUnset')
   let token: string
   try { token = readFileSync(accounts.tokenFile, 'utf8').trim() } catch (error) { throw new SetupError('gitlabTokenUnreadable', { file: accounts.tokenFile, output: reason(error) }) }
   if (!token) throw new SetupError('gitlabTokenUnreadable', { file: accounts.tokenFile, output: 'The token file is empty.' })
+  const selection = selectionOf(accounts)
+  let projects: string[]
+  try { projects = await selectedProjects(baseUrl, token, selection) }
+  catch (error) {
+    if (error instanceof GitlabGroupError) throw new SetupError('gitlabGroupUnreadable', { group: error.group, status: String(error.status) })
+    throw error
+  }
+  if (!projects.length) throw new SetupError('gitlabRepositoryUnset')
   const user = await gitlabGet(`${baseUrl}/user`, token, GitlabUser)
-  const project = await gitlabGet(`${baseUrl}/projects/${encodeURIComponent(accounts.repository)}`, token, GitlabProject)
-    .catch((error: unknown) => {
-      if (error instanceof GitlabHttpError && (error.status === 403 || error.status === 404)) {
-        throw new SetupError('gitlabProjectUnreadable', { account: user.username, repository: accounts.repository })
-      }
-      throw error
-    })
-  const level = project.permissions?.project_access?.access_level ?? project.permissions?.group_access?.access_level ?? 0
-  if (level < GITLAB_WRITE_LEVEL) throw new SetupError('gitlabReadOnly', { account: user.username, repository: project.path_with_namespace })
-  return { ...machine, repository: project.path_with_namespace, github: { cli: '', login: '', noreply: '' },
-    gitlab: { baseUrl, tokenFile: accounts.tokenFile, login: user.username, repository: project.path_with_namespace } }
+  // An explicit project must work; a project merely matched by a pattern or group may have been deleted or may grant
+  // no push access, and is then left out instead of stopping the whole Source.
+  const explicit = new Set(selection.projects.filter(project => !hasWildcard(project)))
+  const reachable: string[] = []
+  const skipped: string[] = []
+  for (const project of projects) {
+    try {
+      const found = await gitlabGet(`${baseUrl}/projects/${encodeURIComponent(project)}`, token, GitlabProject)
+        .catch((error: unknown) => {
+          if (error instanceof GitlabHttpError && (error.status === 403 || error.status === 404)) {
+            throw new SetupError('gitlabProjectUnreadable', { account: user.username, repository: project })
+          }
+          throw error
+        })
+      const level = found.permissions?.project_access?.access_level ?? found.permissions?.group_access?.access_level ?? 0
+      if (level < GITLAB_WRITE_LEVEL) throw new SetupError('gitlabReadOnly', { account: user.username, repository: found.path_with_namespace })
+      reachable.push(found.path_with_namespace)
+    } catch (error) {
+      if (!(error instanceof SetupError) || explicit.has(project)) throw error
+      skipped.push(project)
+    }
+  }
+  if (!reachable.length) throw new SetupError('gitlabProjectUnreadable', { account: user.username, repository: projects[0]! })
+  // Keep the canonical names GitLab returned so a renamed project still matches its configuration.
+  return { ...machine, repository: reachable[0]!, github: { cli: '', login: '', noreply: '' },
+    gitlab: { baseUrl, tokenFile: accounts.tokenFile, login: user.username, repositories: reachable } }
 }

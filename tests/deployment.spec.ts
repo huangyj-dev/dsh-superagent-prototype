@@ -77,8 +77,42 @@ describe('GitLab account', () => {
     const file = tokenFile()
     const deployment = await resolveGitlab(machine(), { baseUrl: 'https://gitlab.example.com/api/v4/', repository: 'acme/widgets', tokenFile: file })
     expect(deployment.repository).toBe('acme/widgets')
-    expect(deployment.gitlab).toEqual({ baseUrl: 'https://gitlab.example.com/api/v4', tokenFile: file, login: 'agent-bot', repository: 'acme/widgets' })
+    expect(deployment.gitlab).toEqual({ baseUrl: 'https://gitlab.example.com/api/v4', tokenFile: file, login: 'agent-bot', repositories: ['acme/widgets'] })
     expect(calls).toEqual(['https://gitlab.example.com/api/v4/user', 'https://gitlab.example.com/api/v4/projects/acme%2Fwidgets'])
+  })
+  it('expands a wildcard pattern and a group into the watch set', async () => {
+    const file = tokenFile()
+    const project = (path: string) => ({ path_with_namespace: path, permissions: { project_access: { access_level: 30 } } })
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      const value = String(url)
+      const ok = (body: unknown) => ({ ok: true, status: 200, statusText: 'OK', json: async () => body }) as unknown as Response
+      if (value.endsWith('/user')) return ok({ username: 'agent-bot', id: 7 })
+      // `g/*` lists direct children only; the explicit group `team` lists recursively.
+      if (value.includes('/groups/g/projects') && value.includes('include_subgroups=false')) return ok([{ path_with_namespace: 'g/a' }])
+      if (value.includes('/groups/team/projects') && value.includes('include_subgroups=true')) return ok([{ path_with_namespace: 'team/x' }, { path_with_namespace: 'team/sub/y' }])
+      if (value.includes('/projects/g%2Fa')) return ok(project('g/a'))
+      if (value.includes('/projects/team%2Fx')) return ok(project('team/x'))
+      if (value.includes('/projects/team%2Fsub%2Fy')) return ok(project('team/sub/y'))
+      return { ok: false, status: 404, statusText: 'Not Found', json: async () => ({}) } as unknown as Response
+    }))
+    const deployment = await resolveGitlab(machine(), { baseUrl: 'https://gitlab.example.com/api/v4', tokenFile: file,
+      projects: ['g/*', 'team/sub/y'], groups: ['team'] })
+    expect(deployment.gitlab?.repositories).toEqual(['team/sub/y', 'team/x', 'g/a'])
+  })
+  it('leaves out a project a pattern matched but the token cannot use, and fails on an explicit one', async () => {
+    const file = tokenFile()
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      const value = String(url)
+      const ok = (body: unknown) => ({ ok: true, status: 200, statusText: 'OK', json: async () => body }) as unknown as Response
+      if (value.endsWith('/user')) return ok({ username: 'agent-bot', id: 7 })
+      if (value.includes('/groups/g/projects')) return ok([{ path_with_namespace: 'g/a' }, { path_with_namespace: 'g/gone' }])
+      if (value.includes('/projects/g%2Fa')) return ok({ path_with_namespace: 'g/a', permissions: { project_access: { access_level: 30 } } })
+      return { ok: false, status: 404, statusText: 'Not Found', json: async () => ({}) } as unknown as Response
+    }))
+    const deployment = await resolveGitlab(machine(), { baseUrl: 'https://gitlab.example.com/api/v4', tokenFile: file, projects: ['g/*'] })
+    expect(deployment.gitlab?.repositories).toEqual(['g/a'])
+    await expect(resolveGitlab(machine(), { baseUrl: 'https://gitlab.example.com/api/v4', tokenFile: file, projects: ['g/gone'] }))
+      .rejects.toMatchObject({ place: 'gitlab', code: 'gitlabProjectUnreadable' })
   })
   it('reports the token, project and role problems where the GitLab card fixes them', async () => {
     const accounts = { baseUrl: 'https://gitlab.example.com/api/v4', repository: 'acme/widgets', tokenFile: tokenFile() }
