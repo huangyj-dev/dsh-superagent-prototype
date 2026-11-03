@@ -192,7 +192,7 @@ function RowsField({ field, value, saved, onChange, labels, refreshLabels }: {
   const rowName = (row: Row) => (named && row[named.key]) || labels[row[key.key] ?? ''] || row[key.key] || ''
   const cell = (row: Row, index: number, column: Column) => {
     const id = row[key.key] ?? '', change = (next: string) => set(index, { ...row, [column.key]: next })
-    if (column === key && (savedKeys.has(id) || (!choose && labels[id]))) {
+    if (column === key && ((!!id && savedKeys.has(id)) || (!choose && !!id && labels[id]))) {
       return <span key={column.key} className={labels[id] ? 'dt-row-label' : 'dt-row-label dt-mono'} title={id}>{labels[id] ?? id}</span>
     }
     if (column === key && choose) {

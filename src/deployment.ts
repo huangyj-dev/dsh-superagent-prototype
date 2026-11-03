@@ -8,7 +8,7 @@ import { z } from 'zod'
 import type { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
 import { runAsWorker, sameDirectory, withoutDirectory, workerBin } from './infra/environment.ts'
 import { SetupError } from './setup.ts'
-import { entrySchema, GitlabGroupError, hasWildcard, selectedProjects, selectionOf } from './infra/gitlab-groups.ts'
+import { entryPath, entrySchema, GitlabGroupError, hasWildcard, selectedProjects, selectionOf } from './infra/gitlab-groups.ts'
 
 const reason = (error: unknown): string => error instanceof Error ? error.message : String(error)
 const absolute = (description: string) => s.string().pattern(/^\//).description(`${description} Absolute path.`)
@@ -57,8 +57,9 @@ export const GitlabAccountsSchema = z.object({
   // Legacy single project, kept so an existing profile keeps working; setup folds it into `projects`.
   repository: z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*$/, 'group/project').default(''),
   // Rows fields submit `{ path }`; a bare string is accepted too, so API saves and panel saves validate alike.
-  projects: z.array(entrySchema(GitlabPattern)).default([]),
-  groups: z.array(entrySchema(GitlabGroup)).default([]),
+  // A blank row (the Add button's placeholder) validates and is dropped from the stored value.
+  projects: z.array(entrySchema(GitlabPattern)).default([]).transform(entries => entries.filter(entry => entryPath(entry).trim() !== '')),
+  groups: z.array(entrySchema(GitlabGroup)).default([]).transform(entries => entries.filter(entry => entryPath(entry).trim() !== '')),
   tokenFile: z.string().trim().default(''),
 })
 export interface GitlabAccount { baseUrl: string; tokenFile: string; login: string; repositories: string[] }

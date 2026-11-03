@@ -10,7 +10,7 @@ import { z } from 'zod'
 import type { Context } from '@deepseek-ai/cordis'
 import { key, type ChannelRef, type Trigger } from '../core/index.ts'
 import { escapeRegExp } from '../infra/text.ts'
-import { entrySchema, selectedProjects, selectionOf } from '../infra/gitlab-groups.ts'
+import { entryPath, entrySchema, selectedProjects, selectionOf } from '../infra/gitlab-groups.ts'
 import { pause, cursorAt } from './poll.ts'
 import { health, sourceContext, type SourceContext } from './host.ts'
 import type { Localized, SourceKind } from './kind.ts'
@@ -31,8 +31,8 @@ const GitlabGroup = z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]
 export const GitlabConfigSchema = z.object({
   // Exact projects, wildcard patterns (`group/*`, `group/**`), and whole groups all feed one deduplicated watch set.
   // Rows fields submit `{ path }`; a bare string is accepted too, so API saves and panel saves validate alike.
-  projects: z.array(entrySchema(GitlabPattern)).default([]),
-  groups: z.array(entrySchema(GitlabGroup)).default([]),
+  projects: z.array(entrySchema(GitlabPattern)).default([]).transform(entries => entries.filter(entry => entryPath(entry).trim() !== '')),
+  groups: z.array(entrySchema(GitlabGroup)).default([]).transform(entries => entries.filter(entry => entryPath(entry).trim() !== '')),
   // Legacy single project from an older configuration; setup folds it into `projects`.
   repository: z.string().trim().regex(/^([A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*$/, 'group/project').default(''),
   baseUrl: z.string().trim().regex(/^https?:\/\/[^\s]+$/, 'http(s) URL').default('https://gitlab.com/api/v4'),
