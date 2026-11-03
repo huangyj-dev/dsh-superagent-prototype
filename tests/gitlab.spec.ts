@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GitlabConfigSchema, mentions, noteTrigger, threadId, tokenOf, webBase, type GitlabNote } from '../src/sources/gitlab.ts'
+import { GitlabConfigSchema, descriptionTrigger, mentions, noteTrigger, threadId, tokenOf, webBase, type GitlabNote } from '../src/sources/gitlab.ts'
 import { listingOf, patternToRegExp, selectionOf } from '../src/infra/gitlab-groups.ts'
 
 const config = GitlabConfigSchema.parse({ repository: 'gba-mwf/motor/grapes_torch', baseUrl: 'http://code.gbamwf.cn:53000/api/v4',
@@ -21,6 +21,15 @@ describe('GitLab notes as Triggers', () => {
     expect(noteTrigger(config, item, 'issues', note({ updated_at: '2026-11-03T00:05:00Z' }), 'agent-bot').id).not.toBe(issue.id)
   })
 
+  it('turns a description that mentions the agent into one stable Trigger', () => {
+    const described = { ...item, description: 'please @agent-bot fix this', created_at: '2026-11-03T00:00:00Z', author: { username: 'alice' } }
+    const trigger = descriptionTrigger(config, described, 'issues', 'agent-bot')
+    expect(trigger.id).toBe(descriptionTrigger(config, { ...described, updated_at: '2026-11-03T00:09:00Z' }, 'issues', 'agent-bot').id)
+    expect(trigger.addressed).toBe('mention')
+    expect(trigger.threads).toEqual([{ source: 'gitlab', id: 'gba-mwf/motor/grapes_torch:issue:7' }])
+    expect(trigger.channel!.thread).toBe('gitlab:gba-mwf/motor/grapes_torch:issue:7')
+    expect(trigger.text).toContain('please @agent-bot fix this')
+  })
   it('marks a mention as addressed and links the reply to the note', () => {
     const trigger = noteTrigger(config, item, 'issues', note(), 'agent-bot')
     expect(trigger.addressed).toBe('mention')

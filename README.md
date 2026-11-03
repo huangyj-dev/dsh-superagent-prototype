@@ -72,7 +72,7 @@ Open the URL printed in the newest `.artifacts/dsh-superagent-*.log` (the line s
 
 The Source polls every 30 seconds, opens a Ticket, the worker works in its own Session and directory, and the result returns to the same discussion. Code work arrives as a merge request; a worker keeps it a draft by prefixing the title with `Draft:` (GitLab 18.2 ignores the API's `draft` field). The agent's own account is `botUsername`, defaulting to the token owner; a dedicated GitLab account with its own token is recommended, so the agent's notes are not mistaken for a person's.
 
-**GitLab Source limits.** Triggers come from notes on Issues and merge requests (a mention, or every note with *Receive every note* on); descriptions, CI and pipeline events do not create Tickets. Threads a Ticket follows are polled too, because GitLab does not always bump an Issue's `updated_at` when a note is added. Workers never merge: a person reviews and merges. Rotate the token by replacing the file's content; the agent and workers read it when they use it.
+**GitLab Source limits.** Triggers come from notes on Issues and merge requests (a mention, or every note with *Receive every note* on) and from a description that mentions the agent once; CI and pipeline events do not create Tickets. Threads a Ticket follows are polled too, because GitLab does not always bump an Issue's `updated_at` when a note is added. Workers never merge: a person reviews and merges. Rotate the token by replacing the file's content; the agent and workers read it when they use it.
 
 ## Documentation
 

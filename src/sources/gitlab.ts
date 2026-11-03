@@ -47,8 +47,9 @@ export type GitlabConfig = z.infer<typeof GitlabConfigSchema>
 /** GitLab user as `/user` returns it. */
 const UserSchema = z.looseObject({ username: z.string(), id: z.number().int() })
 /** Issue or merge request as a project list returns it. */
-const ItemSchema = z.looseObject({ iid: z.number().int(), title: z.string(), web_url: z.string().nullish(), updated_at: z.string().nullish(),
-  state: z.string().nullish(), author: z.looseObject({ username: z.string() }).nullish() })
+const ItemSchema = z.looseObject({ iid: z.number().int(), title: z.string(), description: z.string().nullish(), web_url: z.string().nullish(),
+  created_at: z.string().nullish(), updated_at: z.string().nullish(), state: z.string().nullish(),
+  author: z.looseObject({ username: z.string() }).nullish() })
 type Item = z.infer<typeof ItemSchema>
 /** One note (comment) on an Issue or merge request. */
 export const NoteSchema = z.looseObject({ id: z.number().int(), body: z.string().nullish(), system: z.boolean().nullish(),
@@ -112,6 +113,25 @@ const noteUrl = (config: GitlabConfig, item: Item, kind: GitlabKindId, note: Git
 export const gitlabChannel = (config: GitlabConfig, kind: GitlabKindId, iid: number, url: string): ChannelRef =>
   ({ source: SOURCE, thread: `gitlab:${threadId(config.repository, kind, iid)}`,
     address: { project: config.repository, kind, iid: String(iid), url } })
+
+/** Builds the Trigger for an Issue or merge-request description that mentions the agent; an edit does not re-trigger it. */
+export function descriptionTrigger(config: GitlabConfig, item: Item, kind: GitlabKindId, agent: string): Trigger {
+  const body = [item.title, item.description ?? ''].filter(Boolean).join('\n\n')
+  const url = item.web_url ?? `${webBase(config.baseUrl)}/${config.repository}/-/${KIND_PATH[kind]}/${item.iid}`
+  return {
+    id: key('gitlab-description', config.repository, kind, String(item.iid)),
+    source: SOURCE,
+    threads: [{ source: SOURCE, id: threadId(config.repository, kind, item.iid) }],
+    actor: { source: SOURCE, id: item.author?.username ?? '' },
+    human: true,
+    at: item.created_at ?? new Date().toISOString(),
+    text: body,
+    ...(mentions(item.description ?? '', agent) ? { addressed: 'mention' as const } : {}),
+    channel: gitlabChannel(config, kind, item.iid, url),
+    url,
+    meta: { project: config.repository, kind, iid: item.iid, isMr: kind === 'merge_requests', title: item.title, description: true },
+  }
+}
 
 /** Builds the Trigger for one note; `agent` is the username whose mentions address the agent and whose own notes are skipped. */
 export function noteTrigger(config: GitlabConfig, item: Item, kind: GitlabKindId, note: GitlabNote, agent: string): Trigger {
@@ -184,7 +204,8 @@ export const gitlabKind: SourceKind<GitlabConfig> = {
       const account = host.commands.deployment.gitlab
       if (!account) throw new Error('This installation has no GitLab account')
       const { project, kind, iid } = message.channel.address
-      const config: GitlabConfig = { ...GitlabConfigSchema.parse({ projects: [project], baseUrl: account.baseUrl, tokenFile: account.tokenFile }) }
+      // `call` addresses the project through `repository`, so a reply names it directly instead of a one-entry list.
+      const config: GitlabConfig = { ...GitlabConfigSchema.parse({ repository: project, baseUrl: account.baseUrl, tokenFile: account.tokenFile }) }
       const path = `/${KIND_PATH[kind as GitlabKindId] ?? 'issues'}/${iid}/notes`
       const marker = `<!-- dsh-superagent:${message.id} -->`
       const body = `${message.text}\n\n${marker}`
@@ -329,7 +350,13 @@ export async function pollRound(ctx: SourceContext, config: GitlabConfig, signal
     const scoped: GitlabConfig = { ...config, repository: project, projects: [], groups: [] }
     for (const kind of ['issues', 'merge_requests'] as const) {
       const updated = await pages(scoped, `/${KIND_PATH[kind]}?state=all&order_by=updated_at&sort=asc&updated_after=${encodeURIComponent(since)}`, ItemSchema, signal)
-      for (const item of updated) await consume(kind, item, project)
+      for (const item of updated) {
+        // A description that mentions the agent starts one ticket; a later edit keeps its stable Trigger id and is a no-op.
+        if (item.description && mentions(item.description, agent) && item.author?.username !== agent) {
+          await ctx.receive(descriptionTrigger(scoped, item, kind, agent))
+        }
+        await consume(kind, item, project)
+      }
     }
   }
   // GitLab does not reliably bump an Issue's updated_at for a new note, so also read every Thread a Ticket follows or
